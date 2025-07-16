@@ -70,32 +70,34 @@ export const identify = async ({ email, phoneNumber }: IdentifyRequestDto) => {
 };
 
 const getLinkedContacts = async (contacts: Contact[]): Promise<Contact[]> => {
-  const contactIds = contacts.map(c => c.id);
-  const primaryContacts = contacts.filter(c => c.linkPrecedence === 'primary');
-  const primaryContactIds = primaryContacts.map(c => c.id);
+  // Find all primary contact IDs related to the initial set of matches.
+  // This includes the IDs of the primary contacts themselves and the linkedIds of secondary contacts.
+  const primaryContactIds = new Set<number>();
+  for (const contact of contacts) {
+    if (contact.linkPrecedence === 'primary') {
+      primaryContactIds.add(contact.id);
+    } else if (contact.linkedId) {
+      primaryContactIds.add(contact.linkedId);
+    }
+  }
 
-  const linkedContacts = await prisma.contact.findMany({
+  if (primaryContactIds.size === 0) {
+    // This case should ideally not be hit if contacts are found, but as a safeguard:
+    return contacts;
+  }
+
+  // Fetch all contacts that are either one of these primary contacts
+  // or are secondary contacts linked to one of them.
+  const fullContactGroup = await prisma.contact.findMany({
     where: {
       OR: [
-        { id: { in: contactIds } },
-        { linkedId: { in: primaryContactIds } },
+        { id: { in: Array.from(primaryContactIds) } },
+        { linkedId: { in: Array.from(primaryContactIds) } },
       ],
     },
   });
 
-  const allContactIds = new Set(linkedContacts.map(c => c.id));
-  const allLinkedIds = new Set(linkedContacts.map(c => c.linkedId).filter(id => id !== null));
-
-  const allIds = new Set([...allContactIds, ...allLinkedIds]);
-
-  return prisma.contact.findMany({
-      where: {
-          OR: [
-              { id: { in: Array.from(allIds) as number[] } },
-              { linkedId: { in: Array.from(allIds) as number[] } },
-          ]
-      }
-  });
+  return fullContactGroup;
 };
 
 const findPrimaryContact = (contacts: Contact[]): Contact => {
@@ -105,18 +107,28 @@ const findPrimaryContact = (contacts: Contact[]): Contact => {
 };
 
 const formatResponse = (contacts: Contact[]) => {
+  if (contacts.length === 0) {
+    return { contact: {} }; // Should not happen in normal flow
+  }
+
   const primaryContact = findPrimaryContact(contacts);
-  const emails = [...new Set(contacts.map(c => c.email).filter(Boolean))];
-  const phoneNumbers = [...new Set(contacts.map(c => c.phoneNumber).filter(Boolean))];
+
+  const emails = Array.from(new Set(contacts.map(c => c.email).filter(Boolean)));
+  const phoneNumbers = Array.from(new Set(contacts.map(c => c.phoneNumber).filter(Boolean)));
+
+  // Ensure the primary contact's details are first, if they exist.
+  const orderedEmails = [primaryContact.email, ...emails.filter(e => e !== primaryContact.email)].filter(Boolean);
+  const orderedPhoneNumbers = [primaryContact.phoneNumber, ...phoneNumbers.filter(p => p !== primaryContact.phoneNumber)].filter(Boolean);
+
   const secondaryContactIds = contacts
-    .filter(c => c.id !== primaryContact.id)
-    .map(c => c.id);
+    .map(c => c.id)
+    .filter(id => id !== primaryContact.id);
 
   return {
     contact: {
       primaryContactId: primaryContact.id,
-      emails,
-      phoneNumbers,
+      emails: orderedEmails,
+      phoneNumbers: orderedPhoneNumbers,
       secondaryContactIds,
     },
   };
