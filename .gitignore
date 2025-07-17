@@ -6,8 +6,7 @@ npm-debug.log*
 pnpm-debug.log*
 
 # Build output
-dist/
-build/
+
 
 # Dependency directories
 node_modules/
