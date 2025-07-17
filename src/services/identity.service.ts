@@ -51,7 +51,7 @@ export const identify = async ({ email, phoneNumber }: IdentifyRequestDto) => {
   const primaryContactsToUpdate = linkedContacts.filter(c => c.id !== primaryContact.id && c.linkPrecedence === 'primary');
 
   if (primaryContactsToUpdate.length > 0) {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       for (const contact of primaryContactsToUpdate) {
         await tx.contact.update({
           where: { id: contact.id },
