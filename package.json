@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
+    "postinstall": "prisma generate",
     "start": "prisma migrate deploy && node dist/index.js",
     "build": "rimraf dist && prisma generate && tsc",
     "ts.check": "tsc --project tsconfig.json",
