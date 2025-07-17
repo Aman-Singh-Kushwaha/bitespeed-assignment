@@ -82,12 +82,10 @@ const getLinkedContacts = async (contacts: Contact[]): Promise<Contact[]> => {
   }
 
   if (primaryContactIds.size === 0) {
-    // This case should ideally not be hit if contacts are found, but as a safeguard:
     return contacts;
   }
 
-  // Fetch all contacts that are either one of these primary contacts
-  // or are secondary contacts linked to one of them.
+  // Fetch all contacts that are either one of these primary contacts or are secondary contacts linked to one of them.
   const fullContactGroup = await prisma.contact.findMany({
     where: {
       OR: [
@@ -108,7 +106,7 @@ const findPrimaryContact = (contacts: Contact[]): Contact => {
 
 const formatResponse = (contacts: Contact[]) => {
   if (contacts.length === 0) {
-    return { contact: {} }; // Should not happen in normal flow
+    return { contact: {} };
   }
 
   const primaryContact = findPrimaryContact(contacts);
